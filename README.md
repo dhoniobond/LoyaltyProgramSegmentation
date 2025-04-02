@@ -9,5 +9,5 @@ We have utilized a three-step approach using Python. Starting with Exploratory D
 These are real world inventory and retail reports which have been utlised after requesting for the reports from the firm.
 
 # Files uploaded
-Python codes (visilaisation , data cleaning , pre-processing , analysis)
+- Python codes (visilaisation , data cleaning , pre-processing , analysis)
 - Report 
