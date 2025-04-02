@@ -1,0 +1,260 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Apr 15 14:30:45 2023
+
+@author: neeti
+"""
+
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Mar 31 20:48:46 2023
+
+@author: danush
+"""
+#importing libraries
+import pandas as pd
+import numpy as np
+from os import chdir
+
+chdir('C:\\Users\\neeti\\OneDrive\\Desktop\\Laptop Backup\\Desktop\\Northeastern University\\Spring 23\\Data Modeling for Business\\Project')
+
+#reading csv
+df=pd.read_csv('customer-data.csv')
+
+#descriptive statistics
+df.head()
+df.tail()
+df.columns
+df.dtypes
+#changing data type of customer id as a string 
+df['cust_id']=df['cust_id'].astype('str')
+stats=df.describe()
+df.isnull().sum()
+
+#7038 null values found in cust_income hence ignoring the metric for clustering.
+
+df['response_flag'].value_counts()
+
+# 0    101308
+# 1      1231
+#hence very few have responded to promotion
+
+##########################################################################################
+#importing seaborn for visualizations
+import seaborn as sns
+#comparing the categories that did and did not respond to the promotion against diffrent sales metrics
+ 
+sns.boxplot(x='response_flag',y='basket_margin',data=df)
+sns.boxplot(x='response_flag',y='total_dollars_L6M',data=df)
+sns.boxplot(x='response_flag',y='total_num_purch_L6M',data=df)
+sns.boxplot(x='response_flag',y='days_since_last_visit',data=df)
+
+#creating subsets of the dataframe on the basis of response flag
+df1=df[df['response_flag']==0]
+df2=df[df['response_flag']==1]
+
+
+mean_values= df.groupby('response_flag').mean()
+
+#plotting sales metrics for individual subsets
+sns.boxplot(x='response_flag',y='basket_margin',data=df1)
+sns.boxplot(x='response_flag',y='basket_margin',data=df2)
+
+sns.boxplot(x='response_flag',y='total_dollars_L6M',data=df2)
+
+##########################################################################################
+
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+import matplotlib.pyplot as plt
+#subsetting data with numeric values for clustering
+df3=df[['cust_age','hhld_size','days_since_last_visit','months_since_first_purch','num_apparel_L6M','num_elec_L6M','num_haba_L6M','num_hw_L6M','total_num_purch_L6M','dollars_apparel_L6M','dollars_elec_L6M','dollars_haba_L6M','dollars_hw_L6M','total_dollars_L6M','basket_margin','margin_hw','margin_elec','margin_haba','margin_apparel']]
+#df3=pd.get_dummies(df,drop_first=True)
+#data scaling
+scaler=MinMaxScaler() #initialize
+scaler.fit(df3)
+scaled_df=scaler.transform(df3)
+
+#clustering import initialize train interpret
+#randomly going with 4 clusters
+
+km4= KMeans(n_clusters=4,random_state=0)#initialize
+km4.fit(scaled_df)#training finding the clusters
+km4.inertia_ 
+#wcv and silk score
+km4.inertia_ #wcv (withing cluster variation) 
+silhouette_score(scaled_df, km4.labels_) ##silk score
+
+
+wcv=[]
+
+for i in range(2,18):
+    km=KMeans(n_clusters=i,random_state=0)#initialize
+    km.fit(scaled_df)#train
+    wcv.append(km.inertia_)
+   #cluster variation
+    
+#plotting elbow plot to decide value of k
+
+plt.plot(range(2,18),wcv)
+plt.xlabel('No of clusters')
+plt.ylabel('within cluster variation')
+
+
+#from the plot we can choose k as 6 as the curve flattens from that point
+
+#trying out different clusters
+#6 clusters
+km6=KMeans(n_clusters=6, random_state=0)
+km6.fit(scaled_df)
+df['labels']= km6.labels_
+df4= df.groupby('labels').mean()
+#not enough differentiation
+
+#4 clusters
+km4= KMeans(n_clusters=4, random_state=0)
+km4.fit(scaled_df)
+df['labels']=km4.labels_
+df4=df.groupby('labels').mean()
+
+df4.to_csv('ClusterGroups.csv')
+
+clustercounts= df['labels'].value_counts()
+#Cluster 0= 28949, Cluster 1= 10,624, Cluster 2= 29,338, Cluster 3= 33,628
+profperc=df.groupby(['labels','cust_profession']).size()/df.groupby('labels').size()*100
+genderperc= df.groupby(['labels','gender']).size()/df.groupby('labels').size()*100
+maritalperc= df.groupby(['labels','marital_status']).size()/df.groupby('labels').size()*100
+residenceperc= df.groupby(['labels','residence_status']).size()/df.groupby('labels').size()*100
+#not enough differentiation
+
+#3 clusters
+
+km3= KMeans(n_clusters=3, random_state=0)
+km3.fit(scaled_df)
+df['labels']=km3.labels_
+df4=df.groupby('labels').mean()
+
+profperc=df.groupby(['labels','cust_profession']).size()/df.groupby('labels').size()*100
+genderperc= df.groupby(['labels','gender']).size()/df.groupby('labels').size()*100
+maritalperc= df.groupby(['labels','marital_status']).size()/df.groupby('labels').size()*100
+residenceperc= df.groupby(['labels','residence_status']).size()/df.groupby('labels').size()*100
+#not enough differentiation
+
+#2 clusters 
+km2= KMeans(n_clusters=2, random_state=0)
+km2.fit(scaled_df)
+df['labels']=km2.labels_
+df4=df.groupby('labels').mean()
+
+profperc=df.groupby(['labels','cust_profession']).size()/df.groupby('labels').size()*100
+genderperc= df.groupby(['labels','gender']).size()/df.groupby('labels').size()*100
+maritalperc= df.groupby(['labels','marital_status']).size()/df.groupby('labels').size()*100
+residenceperc= df.groupby(['labels','residence_status']).size()/df.groupby('labels').size()*100
+
+#this gives us the most diferentiation so we will go with 2 clusters 
+
+#Implementing Logistic Regression on our  original dataframe to predict response variable
+
+#creating a new dataframe by dropping:
+    # Customer ID since it adds no predictive value to our model
+    # Cust income since it has a large number of missing values
+    # total_num_purch_L6M since total field is a summation of purchases in apparel, electronics, health and beauty and housewares
+    # total_dollars_L6M and basket_margin due to the same logic as above
+    # state, cust profession, gender, marital status, residence status as they are categorical columns and dummy variable creation to  include them in our analysis 
+    #was not an efficient approach. 
+    
+
+df5= df.drop(['cust_id','cust_income','total_num_purch_L6M','total_dollars_L6M','basket_margin', 'state', 'cust_profession', 'gender', 'marital_status','residence_status'], axis=1)
+
+
+# #creating dummy variables for categorical x variables included in our analysis
+
+# df5=pd.get_dummies(df5, drop_first=True)
+
+# df5.dtypes
+
+# df5 = df5.astype({"cust_profession_OTHER" : 'float64','cust_profession_SALARIED' :'float64','cust_profession_SELF EMPLOYED' : 'float64',
+# 'cust_profession_STUDENT'  : 'float64', 'cust_profession_UNEMPLOYED' :'float64','gender_M' : 'float64','marital_status_Married' :'float64','marital_status_Single' : 'float64',
+# 'marital_status_Unknown': 'float64','residence_status_Other' : 'float64','residence_status_Rental':'float64','residence_status_Unknown' :'float64'})
+
+
+# df5 = df5.astype({"cust_profession_OTHER" : 'int64','cust_profession_SALARIED' :'int64','cust_profession_SELF EMPLOYED' : 'int64',
+# # 'cust_profession_STUDENT'  : 'int64', 'cust_profession_UNEMPLOYED' :'int64','gender_M' : 'int64','marital_status_Married' :'int64','marital_status_Single' : 'int64',
+# # 'marital_status_Unknown': 'int64','residence_status_Other' : 'int64','residence_status_Rental':'int64','residence_status_Unknown' :'int64'})
+# # identify columns that contain unexpected values
+# non_numerical_rows = df5.apply(lambda row: any([isinstance(val, str) for val in row.values]), axis=1)
+
+# # print out any non-numerical rows
+# print(df[non_numerical_rows])
+
+# #data scaling
+# scaler=MinMaxScaler() #initialize
+# scaler.fit(df5)
+# scaled_df=scaler.transform(df5)
+
+
+
+
+#defining x and y variables for our analysis
+
+x= df5.drop(['response_flag'], axis=1)
+y=df5[['response_flag']]
+
+
+
+#running the logistic regression model
+from sklearn.model_selection import train_test_split
+x_train, x_test, y_train,y_test= train_test_split(x,y,test_size=0.3, random_state=1)
+
+from sklearn.linear_model import LogisticRegression
+logmodel=LogisticRegression(solver='saga')
+
+
+
+# from sklearn.metrics import confusion_matrix,f1_score,accuracy_score
+# f1_score(y_test, y_pred)
+
+#performing feature selection using backward selection method to select important x variables 
+'''include why we chose this method'''
+
+from mlxtend.feature_selection import SequentialFeatureSelector as SFS
+
+'''' input max value of k features depending on number of variables in x train ''''
+sfs = SFS(logmodel, 
+          k_features=(1,29), 
+          forward=False, 
+          scoring='accuracy',
+          cv=20)
+
+sfs.fit(x_train, y_train)##training here means finding important features based on accuracy
+
+###what features were selected
+sfs.k_feature_names_
+
+##transformed data will have only selected features
+
+X_train_sfs = sfs.transform(x_train)
+X_test_sfs = sfs.transform(x_test)
+
+
+# Fit the model using only selected features
+# and make a prediction on the test data
+logmodel.fit(X_train_sfs, y_train)
+y_pred = logmodel.predict(X_test_sfs)
+
+
+logmodel.fit(x_train,y_train)
+
+y_pred=logmodel.predict(x_test)
+
+from sklearn.metrics import confusion_matrix,f1_score,accuracy_score
+f1_score(y_test, y_pred)
+
+
+
+
+
+
+
+
